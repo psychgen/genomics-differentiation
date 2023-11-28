@@ -1,5 +1,5 @@
 # genomics-differentiation
-Data preparation and analysis code for the paper "The genetic architecture of differentiating behavioural and emotional problems in early life"
+Data preparation and analysis code for the paper "The genetic architecture of differentiating behavioral and emotional problems in early life"
 
 Authors: Adrian Dahl Askelund (jaaskelu@uio.no / ada@lds.no), Laura Hegemann, Andrea G. Allegrini, Elizabeth C. Corfield, Helga Ask, Neil M. Davies, Ole A. Andreassen, Alexandra Havdahl, & Laurie J. Hannigan (laurie.hannigan@bristol.ac.uk).
 
@@ -48,10 +48,4 @@ Authors: Adrian Dahl Askelund (jaaskelu@uio.no / ada@lds.no), Laura Hegemann, An
 
 06.1_specify_LGMs_with_trio_pgs.R specifies LGMs with trio PGS as predictors.
 
-07_run_mediation_LGMs_with_sx.R runs the mediation LGMs w/ PGS and symptom outcomes by sourcing the script '07.1_specify_mediation_LGMs_with_sx.R'.
-
-07.1_specify_mediation_LGMs_with_sx.R specifies the mediation LGMs with symptom outcomes.
-
-07.2_run_mediation_LGMs_with_dx.R runs mediation LGMs with diagnostic outcomes in Mplus, using the MplusAutomation package in R. 
-
-08_run_equiv_tests.R runs equivalence tests to determine, in conjunction with null hypothesis significance tests, whether the PGS effects are null, non-null, or undecided.
+07_run_equiv_tests.R runs equivalence tests to determine, in conjunction with null hypothesis significance tests, whether the PGS effects are null, non-null, or undecided.
