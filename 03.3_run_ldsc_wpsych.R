@@ -1,8 +1,8 @@
 #03.3_run_ldsc_wpsych.R
 
-#This script runs ld-score regression of differentiation and total problems, 
+#This script runs LD-score regression of differentiation and total problems, 
 #and also the 11 psychiatric conditions. To be run on the cluster, using 
-#the '03.3_run_ldsc_wpsych.sh' script in the 'shell scripts' folder
+#the '03.3_run_ldsc_wpsych.sh' script in the 'shell scripts' folder.
 
 library(tzdb, lib = "//cluster/p/p471/cluster/projects/differentiation_genomics/packages")
 library(GenomicSEM, lib = "//cluster/p/p471/cluster/projects/differentiation_genomics/packages")
@@ -20,9 +20,9 @@ sample.prev <- c(.5,.5,.5,.5,.5,.5,.5,.5,.5,.5,.5,NA,NA,NA,NA,NA,NA)
 
 population.prev <- c(.009,.02,.007,.01,.01,.12,.087,.02,.068,.21,.31,NA,NA,NA,NA,NA,NA)
 
-ld <- "/cluster/p/p471/cluster/data/genetic_data/qcd_genetic_data/regenie-master/eur_w_ld_chr/"
+ld <- "/cluster/p/p471/cluster/data/genetic_data/for_deletion/qcd_genetic_data/regenie-master/eur_w_ld_chr/"
 
-wld <- "/cluster/p/p471/cluster/data/genetic_data/qcd_genetic_data/regenie-master/eur_w_ld_chr/"
+wld <- "/cluster/p/p471/cluster/data/genetic_data/for_deletion/qcd_genetic_data/regenie-master/eur_w_ld_chr/"
 
 trait.names=c("an","ocd","ts","scz","bip","alc","adhd","asd","ptsd","mdd","anx",
               "diff1","tot1","diff2","tot2","diff3","tot3")

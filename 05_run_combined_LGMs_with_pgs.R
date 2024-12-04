@@ -1,18 +1,56 @@
 #05_run_combined_LGMs_with_pgs.R
 
-## This script runs the latent growth models (LGMs) with PGS by sourcing:
-## 05.1_specify_combined_LGMs_with_pgs.R
+#This script runs the latent growth models (LGMs) with PGS included as 
+#predictors by sourcing the script: '05.1_specify_combined_LGMs_with_pgs.R'.
 
 library(tidyverse)
 library(lavaan)
 library(patchwork)
 library(ggrepel)
+library(genotools)
 library(viridis)
+library(flextable)
+library(officer)
 
-# read in processed data from 01_data_preparation.R, and
-# trio data from 06_run_LGMs_with_trio_pgs.R
-load("./data/processed_data.RData")
-load(file="./data/trio_full.RData")
+# read in processed data from 01_data_preparation.R
+load("./data/processed_data_ld.RData")
+
+# restrict full dataset to complete genotyped trios
+trio_full <- fulldata %>%
+  filter(!is.na(adhd_child) & !is.na(adhd_father) & !is.na(adhd_mother) &
+           !is.na(asd_child) & !is.na(asd_father) & !is.na(asd_mother) &
+           !is.na(an_child) & !is.na(an_father) & !is.na(an_mother) &
+           !is.na(ts_child) & !is.na(ts_father) & !is.na(ts_mother) &
+           !is.na(ocd_child) & !is.na(ocd_father) & !is.na(ocd_mother) &
+           !is.na(scz_child) & !is.na(scz_father) & !is.na(scz_mother) &
+           !is.na(bip_child) & !is.na(bip_father) & !is.na(bip_mother) &
+           !is.na(alc_child) & !is.na(alc_father) & !is.na(alc_mother) &
+           !is.na(ptsd_child) & !is.na(ptsd_father) & !is.na(ptsd_mother) &
+           !is.na(mdd_child) & !is.na(mdd_father) & !is.na(mdd_mother) &
+           !is.na(anx_child) & !is.na(anx_father) & !is.na(anx_mother))
+
+# get list of unrelated trios in MoBa
+unrelated <- unrelate(unrelated = "trios")
+
+# make character to enable filtering
+trio_full <- trio_full %>%
+  mutate(BARN_NR = as.character(BARN_NR))
+
+# restrict to unrelated trios
+#trio_unrelated <- trio_full %>%
+#  filter(IID %in% unrelated$IID) 
+
+# The list of unrelated IDs has changed since submission.
+# Therefore, restrict to the previous list of unrelated IDs:
+load(file="./data/trio_unrelated.RData")
+
+trio_unrelated_ld <- trio_full %>%
+  filter(ind_id %in% trio_unrelated$ind_id) 
+
+# save / load trio data
+save(trio_full, file="./data/trio_full_ld.RData")
+save(trio_unrelated_ld, file="./data/trio_unrelated_ld.RData")
+load(file="./data/trio_full_ld.RData")
 
 # specify combined LGMs
 source("./scripts/05.1_specify_combined_LGMs_with_pgs.R")
@@ -26,7 +64,13 @@ fit_model_basic <- sem(model_basic,
                        fixed.x = F)
 
 # provide output for the model
-summary(fit_model_basic, fit.measures = TRUE, std = TRUE)
+summary(fit_model_basic, fit.measures = TRUE, std = TRUE, ci = TRUE)
+
+# get standardized estimates along with 95% CIs to report in text
+std_s <- standardizedSolution(fit_model_basic, ci = TRUE)
+
+# filter the output to show only regression paths for covariates
+regression_output <- std_s[std_s$op == "~", ]
 
 # run LGM with predictors - both intercept and slope for diff and tot
 fit_model1_both <- sem(model1, 
@@ -39,8 +83,8 @@ fit_model1_both <- sem(model1,
 # provide output for the model
 summary(fit_model1_both, fit.measures = TRUE, std = TRUE)
 
-save(fit_model1_both, file= "./output/fit_model1_both.RData")
-load("./output/fit_model1_both.RData")
+save(fit_model1_both, file= "./output/fit_model1_both_ld.RData")
+load("./output/fit_model1_both_ld.RData")
 
 # run LGM with predictors - intercepts only for diff and tot
 fit_model2_both <- sem(model2, 
@@ -53,8 +97,8 @@ fit_model2_both <- sem(model2,
 # provide output for the model
 summary(fit_model2_both, fit.measures = TRUE, std = TRUE)
 
-save(fit_model2_both, file= "./output/fit_model2_both.RData")
-load("./output/fit_model2_both.RData")
+save(fit_model2_both, file= "./output/fit_model2_both_ld.RData")
+load("./output/fit_model2_both_ld.RData")
 
 # run LGM with predictors - slopes only for diff and tot
 fit_model3_both <- sem(model3, 
@@ -67,8 +111,8 @@ fit_model3_both <- sem(model3,
 # provide output for the model
 summary(fit_model3_both, fit.measures = TRUE, std = TRUE)
 
-save(fit_model3_both, file= "./output/fit_model3_both.RData")
-load("./output/fit_model3_both.RData")
+save(fit_model3_both, file= "./output/fit_model3_both_ld.RData")
+load("./output/fit_model3_both_ld.RData")
 
 # compare the different models
 intercepts_only <- anova(fit_model1_both, fit_model2_both)
@@ -216,7 +260,7 @@ load(file="./output/unadjusted_PGS_ests_slope.RData")
 
 # create tables intercept and slope outcomes ----
 
-# Table Sx: create table unadjusted PGS effects on intercept
+# Table S10: create table unadjusted PGS effects on intercept
 tbl_int_unadj <- ests %>%
   mutate(across(where(is.numeric), round, digits=2)) %>%
   select(outcome,pgs,est.std,ci.lower,ci.upper,FDR_pval) %>%
@@ -226,6 +270,9 @@ tbl_int_unadj <- ests %>%
               names_sep = ".") %>%
   select(pgs, ends_with(".d"), ends_with(".t"))
 
+rows_to_replace_col5 <- which(tbl_int_unadj[[5]] == 0)
+rows_to_replace_col9 <- which(tbl_int_unadj[[9]] == 0)
+
 (ft_tbl_int_unadj <- tbl_int_unadj %>% 
     flextable() %>% 
     set_header_labels(values=list(pgs="PGS",est.std.d="EST",
@@ -234,20 +281,23 @@ tbl_int_unadj <- ests %>%
                                   ci.lower.t="LCI",ci.upper.t="UCI",
                                   FDR_pval.t="")) %>%
     add_header_row(values=list("","Differentiation","Total problems"), colwidths = c(1,4,4)) %>%
-    add_header_lines(values="Table Sx: Unadjusted polygenic score associations (intercept)") %>%
-    compose(i = c(3,3), j = c(5,9), part = "header", value = as_paragraph("P",as_sub("FDR"))) %>%
+    compose(i = c(2,2), j = c(5,9), part = "header", value = as_paragraph("P",as_sub("FDR"))) %>%
+    compose(i = rows_to_replace_col5, j = 5, part = "body",value = as_paragraph("<0.01")) %>%
+    compose(i = rows_to_replace_col9, j = 9, part = "body",value = as_paragraph("<0.01")) %>%
     flextable::font(fontname = "Arial", part= "all") %>% 
     theme_box() %>%
     border_outer(border=fp_border(color="gray80",width=2),part="all") %>%
     border_inner(border=fp_border(color='gray80',width=1),part="all") %>%
-    hline(i=3,border=fp_border(color="gray50",width=3),part="header") %>%
+    hline(i=2,border=fp_border(color="gray50",width=3),part="header") %>%
     bg(bg="#F1F1F1",part="header") %>% 
-    align(align = "center", part="all") %>% 
+    align(align = "right", part="footer") %>% 
+    align(align = "center", part="header") %>%
+    align(j = 1, align = "left", part = "header") %>%
     set_table_properties(layout = "autofit"))
 
-save_as_docx(ft_tbl_int_unadj, path = "./tables/Table_Sx_unadjusted_PGS.docx")
+save_as_docx(ft_tbl_int_unadj, path = "./tables/Table_S10_unadjusted_PGS.docx")
 
-# Table Sx: create table unadjusted PGS effects on slope
+# Table S17: create table unadjusted PGS effects on slope
 tbl_slope_unadj <- ests2 %>%
   mutate(across(where(is.numeric), round, digits=2)) %>%
   select(outcome,pgs,est.std,ci.lower,ci.upper,FDR_pval) %>%
@@ -257,6 +307,9 @@ tbl_slope_unadj <- ests2 %>%
               names_sep = ".") %>%
   select(pgs, ends_with(".d"), ends_with(".t"))
 
+rows_to_replace_col5 <- which(tbl_slope_unadj[[5]] == 0)
+rows_to_replace_col9 <- which(tbl_slope_unadj[[9]] == 0)
+
 (ft_tbl_slope_unadj <- tbl_slope_unadj %>% 
     flextable() %>% 
     set_header_labels(values=list(pgs="PGS",est.std.d="EST",
@@ -265,15 +318,18 @@ tbl_slope_unadj <- ests2 %>%
                                   ci.lower.t="LCI",ci.upper.t="UCI",
                                   FDR_pval.t="")) %>%
     add_header_row(values=list("","Differentiation","Total problems"), colwidths = c(1,4,4)) %>%
-    add_header_lines(values="Table Sx: Unadjusted polygenic score associations (slope)") %>%
-    compose(i = c(3,3), j = c(5,9), part = "header", value = as_paragraph("P",as_sub("FDR"))) %>%
+    compose(i = c(2,2), j = c(5,9), part = "header", value = as_paragraph("P",as_sub("FDR"))) %>%
+    compose(i = rows_to_replace_col5, j = 5, part = "body",value = as_paragraph("<0.01")) %>%
+    compose(i = rows_to_replace_col9, j = 9, part = "body",value = as_paragraph("<0.01")) %>%
     flextable::font(fontname = "Arial", part= "all") %>% 
     theme_box() %>%
     border_outer(border=fp_border(color="gray80",width=2),part="all") %>%
     border_inner(border=fp_border(color='gray80',width=1),part="all") %>%
-    hline(i=3,border=fp_border(color="gray50",width=3),part="header") %>%
+    hline(i=2,border=fp_border(color="gray50",width=3),part="header") %>%
     bg(bg="#F1F1F1",part="header") %>% 
-    align(align = "center", part="all") %>% 
+    align(align = "right", part="footer") %>% 
+    align(align = "center", part="header") %>%
+    align(j = 1, align = "left", part = "header") %>%
     set_table_properties(layout = "autofit"))
 
-save_as_docx(ft_tbl_slope_unadj, path = "./tables/Table_Sx_unadjusted_PGS_slope.docx")
+save_as_docx(ft_tbl_slope_unadj, path = "./tables/Table_S17_unadjusted_PGS_slope.docx")

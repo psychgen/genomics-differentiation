@@ -1,12 +1,13 @@
-#08_run_equiv_tests.R
+#07_run_equivalence_tests.R
 
-## This script runs equivalence tests to determine, in conjunction with
-## null hypothesis significance tests (NHST), whether PGS effects are:
+#This script runs equivalence tests to determine, in conjunction with
+#null hypothesis significance tests (NHST), whether PGS effects are:
+
 ## a) null (within the region of practical equivalence to zero); 
 ## b) non-null (statistically significant and not entirely within 
-## the region of practical equivalence to zero); or
+##    the region of practical equivalence to zero); or
 ## c) undecided (not statistically significant and not entirely within 
-## the region of practical equivalence to zero). 
+##    the region of practical equivalence to zero). 
 
 library(tidyverse)
 library(effectsize)
@@ -15,11 +16,11 @@ library(ggrepel)
 # load data ----
 
 # unadjusted PGS results
-load("./output/fit_model1_both.RData")
+load(file="./output/fit_model1_both_ld.RData")
 load(file="./output/unadjusted_PGS_ests.RData")
 
 #trio PGS results
-load("./output/fit_triomodel_full.RData")
+load("./output/fit_triomodel_full_ld.RData")
 load("./output/trio_PGS_effects.RData")
 
 # get 90% CIs and df from unadjusted model
@@ -299,7 +300,7 @@ px<-ggplot(plot_res,aes(x=max, y=pgs)) +
                        labels=c("5x10-6","0.05") ,option="magma", begin=0.45, end=1, direction=-1)+
   scale_x_continuous("Most extreme absolute value\nwithin 90% CI range",  ) +
   scale_y_discrete("Genetic liability to psychiatric conditions",limits=rev) +
-  coord_cartesian(xlim=c(0,0.106))+
+  coord_cartesian(xlim=c(0,0.127))+
   theme(strip.text.y = element_text(angle=0),
         strip.text = element_text(size=15, colour = 'black'),
         axis.text.x = element_text(angle=90,size=12,colour="black"),
@@ -311,12 +312,7 @@ px<-ggplot(plot_res,aes(x=max, y=pgs)) +
         legend.position= "right",
         legend.direction = "vertical")
 
-#tiff(paste0("./figures/",Sys.Date(),"_outcomes_equivalence.tiff"), res = 600, compression = "lzw", unit = "in",
-#     height = 10, width =8)
-
 print(px)
-
-#dev.off()
 
 # prepare trio output for plotting
 plot_trio_res <- final_trio_res %>%
@@ -340,7 +336,7 @@ trio<-ggplot(plot_trio_res,aes(x=max, y=pgs)) +
                        labels=c("0.005","0.05") ,option="magma", begin=0.45, end=1, direction=-1)+
   scale_x_continuous("Most extreme absolute value\nwithin 90% CI range",  ) +
   scale_y_discrete("Genetic liability to psychiatric conditions",limits=rev) +
-  coord_cartesian(xlim=c(0,0.127))+
+  coord_cartesian(xlim=c(0,0.137))+
   theme(strip.text.y = element_text(angle=0),
         strip.text = element_text(size=15, colour = 'black'),
         axis.text.x = element_text(angle=90,size=12,colour="black"),
@@ -370,7 +366,7 @@ plot_trio_ind_res_m <- final_trio_ind_res_m %>%
 ind_m<-ggplot(plot_trio_ind_res_m,aes(x=max, y=pgs)) +
   geom_vline(aes(xintercept=ROPE_high), color = "grey60", linetype = 2, size=0.7) + 
   geom_point(aes(shape= `NHST+Equiv`, fill=log10(FDR_TOST_p)),size=4,stroke=0.8) +
-  scale_shape_manual(values=c(21,22), name = "NHST+Equiv.\nconclusion" )+
+  scale_shape_manual(values=c(24,21), name = "NHST+Equiv.\nconclusion" )+
   facet_grid(cols=vars(model)) + 
   theme_classic(base_size = 14) +
   labs(shape="Best-fitting\nmodel")+ 

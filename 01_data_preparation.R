@@ -6,18 +6,11 @@
 #         repos=NULL,
 #         type = "binary")
 
-#install.packages("N:/durable/common/software/genotools_0.2.1.zip", 
-#         repos=NULL,
-#         type = "binary")
-
 #install.packages("//tsd-evs/p471/data/durable/projects/differentiation_genomics/packages/rlang_1.0.2.tar",
 #                  repos = NULL,
 #                  type = "source")
 
-#install.packages("corrplot")
-
 # load packages for data prep ####
-
 library(tidyverse)
 library(phenotools)
 library(foreign)
@@ -26,30 +19,15 @@ library(viridis)
 library(patchwork)
 
 # curate dataset ####
-npr_groups <- c(paste0("dep = ",paste0(c("F32", "F33", "F341"),collapse =",")),
-                paste0("anx = ",paste0(c("F40", "F41", "F42", "F43", "F44", "F930", "F931", "F932"),collapse =",")),
-                paste0("adhd = ",paste0("F90",collapse =",")),
-                paste0("con = ",paste0(c("F91", "F92"),collapse =",")))
-
-kuhr_groups <- c(paste0("dep = ",paste0("P76",collapse =",")),
-                 paste0("adhd = ",paste0("P81",collapse =",")),
-                 paste0("con = ",paste0("P23",collapse =",")),
-                 paste0("anx = ",paste0("P74",collapse =",")),
-                 paste0("phob = ",paste0("P79",collapse =",")),
-                 paste0("ptsd = ",paste0("P82",collapse =",")))
-
 mydata <- curate_dataset(variables_required=
                            list(
                              moba=c(
                                "cbcl_ext_c_18m", "cbcl_int_c_18m",                      # CBCL 1.5yr
                                "cbcl_ext_c_3yr", "cbcl_int_c_3yr",                      # CBCL 3yr
                                "cbcl_ext_c_5yr", "cbcl_int_c_5yr",                      # CBCL 5yr
-                               "rsdbd_ina_c_8yr", "rsdbd_hyp_c_8yr",                    # RSDBD 8yr - ADHD
-                               "rsdbd_cd_c_8yr", "rsdbd_odd_c_8yr",                     # RSDBD 8yr - behavioural
-                               "smfq_dep_c_8yr", "scared_anx_c_8yr",                    # RSDBD 8yr - emotional
                                "ALDERRETUR_S5", "ALDERRETUR_S6",                        # child age at questionnaire return 1.5yr & 3yr
                                "AGE_RETURN_MTHS_Q5AAR", "AGE_RETURN_MTHS_Q8AAR",        # child age at questionnaire return 5yr & 8yr
-                               "KJONN"), npr = npr_groups, kuhr = kuhr_groups),         # sex and diagnoses from secondary and primary care
+                               "KJONN")),                                               # sex 
                          PDB = "2306",
                          moba_data_version = 12,
                          completion_threshold=0.5,
@@ -66,8 +44,6 @@ load(file="./scratch/curated_dataset.RData")
 
 myscaledata <- mydata$moba$scales
 myitemdata <- mydata$moba$items
-mynprdata <- mydata$npr
-mykuhrdata <- mydata$kuhr
 
 # select and rename scale variables for main dataset 
 alldata <- myscaledata %>% 
@@ -75,10 +51,7 @@ alldata <- myscaledata %>%
   select(ind_id, preg_id, m_id, f_id, BARN_NR, 
          int1 = cbcl_int_c_18m, ext1 = cbcl_ext_c_18m,
          int2 = cbcl_int_c_3yr, ext2 = cbcl_ext_c_3yr,
-         int3 = cbcl_int_c_5yr, ext3 = cbcl_ext_c_5yr,
-         inat_8yr = rsdbd_ina_c_8yr, hyp_8yr = rsdbd_hyp_c_8yr, 
-         cd_8yr = rsdbd_cd_c_8yr, odd_8yr = rsdbd_odd_c_8yr, 
-         dep_8yr = smfq_dep_c_8yr, anx_8yr = scared_anx_c_8yr) %>%
+         int3 = cbcl_int_c_5yr, ext3 = cbcl_ext_c_5yr) %>%
   as.data.frame()
 
 covs <- myitemdata %>%
@@ -88,27 +61,8 @@ covs <- myitemdata %>%
          age3 = AGE_RETURN_MTHS_Q5AAR_raw) %>%
   as.data.frame()
 
-alldata <- alldata %>%
+pheno_data <- alldata %>%
   left_join(covs)
-
-# bring relevant diagnosis variables into the main dataset ####
-diagdata <- mynprdata %>% 
-  select(preg_id,m_id,BARN_NR,matches("received_dx_2x")) %>% 
-  full_join(mykuhrdata %>% 
-              select(preg_id,m_id,f_id,BARN_NR,matches("received_dx_2x"))) %>% 
-  mutate(any_dx_dep = ifelse(received_dx_2x_dep_npr=="yes"|
-                               received_dx_2x_dep_kuhr=="yes", 1, 0),
-         any_dx_anx = ifelse(received_dx_2x_anx_npr=="yes"|
-                               (received_dx_2x_anx_kuhr=="yes"|
-                                  received_dx_2x_phob_kuhr=="yes"|
-                                  received_dx_2x_ptsd_kuhr=="yes"), 1, 0),
-         any_dx_con = ifelse(received_dx_2x_con_npr=="yes"|
-                               received_dx_2x_con_kuhr=="yes", 1, 0),
-         any_dx_adhd = ifelse(received_dx_2x_adhd_npr=="yes"|
-                                received_dx_2x_adhd_kuhr=="yes", 1, 0))
-
-pheno_data <- alldata %>% 
-  left_join(diagdata) 
 
 # manipulate data ####
 
@@ -137,10 +91,6 @@ pheno_data <- pheno_data %>%
   mutate(tot2 = scale(ext2 + int2)) %>%
   mutate(tot3 = scale(ext3 + int3))
 
-# scale 8 year outcome variables
-pheno_data <- pheno_data %>% 
-  mutate_at(vars(matches("8yr")), list(~scale(.)))
-
 # select sample ####
 
 # Restrict to individuals with non-missing on at
@@ -153,14 +103,11 @@ pheno_data <- pheno_data %>%
 save(pheno_data, file = './data/processed_pheno_data.RData')
 load(file = './data/processed_pheno_data.RData')
 
-# merge phenotype and genotype data ####
+# select variables
 alldata <- pheno_data %>%
   select(ind_id, preg_id, m_id, f_id, BARN_NR, sex,
          diff1, tot1, diff2, tot2, diff3, tot3,
-         inat_8yr, hyp_8yr, cd_8yr, odd_8yr, 
-         dep_8yr, anx_8yr, age1, age2, age3, 
-         any_dx_dep, any_dx_anx, any_dx_con,
-         any_dx_adhd) %>%
+         age1, age2, age3) %>%
   as.data.frame()
 
 #create phenotype and covariate files for GWAS ####
@@ -236,21 +183,18 @@ write_delim(pheno_gwas_5y,file="pheno_gwas_5y.txt",col_names=TRUE)
 ##read in PGS data from the script: 
 ##00.1_create_polygenic_scores.R
 
-load(file="./scratch/pca_child.RData")
-load(file="./scratch/pca_mother.RData")
-load(file="./scratch/pca_father.RData")
+load(file="./scratch/pgs_child_ldpred2.RData")
+load(file="./scratch/pgs_father_ldpred2.RData")
+load(file="./scratch/pgs_mother_ldpred2.RData")
 
-fulldata <- alldata %>% 
-  left_join(pgs_pcs_kids) %>% 
-  left_join(pgs_pcs_dads) %>% 
-  left_join(pgs_pcs_mums)
-
-fulldata <- fulldata %>%
-  select(-c(ea_child,ea_mother,ea_father)) %>%
+fulldata <- alldata %>%
+  left_join(pgs_kids, by = c("ind_id","preg_id","BARN_NR")) %>%
+  left_join(pgs_dads, by = "f_id") %>%
+  left_join(pgs_mums, by = "m_id") %>%
   mutate_at(vars(matches("_child|_mother|_father")), list(~scale(.)))
 
-save(fulldata, file = './data/processed_data.RData')
-load(file = './data/processed_data.RData')
+save(fulldata, file = './data/processed_data_ld.RData')
+load(file = './data/processed_data_ld.RData')
 
 ## create Figure 1 illustrating calculation of outcomes
 
@@ -259,47 +203,53 @@ load(file = './data/processed_pheno_data.RData')
 
 # select ext and int, and drop NAs
 dat <- pheno_data %>%
-  select(ind_id, Behavioural=ext1, Emotional=int1) %>%
+  select(ind_id, Behavioral=ext1, Emotional=int1) %>%
   na.omit()
 
 # calculate differentiation and total scores
-dat$Differentiation <- scale(dat$Behavioural) - scale(dat$Emotional)
-dat$`Total problems` <- scale(dat$Behavioural) + scale(dat$Emotional)
+dat$Differentiation <- scale(dat$Behavioral) - scale(dat$Emotional)
+dat$`Total problems` <- scale(dat$Behavioral) + scale(dat$Emotional)
 
 plotdat <- dat %>%
   gather("CBCL_var","value",-ind_id,-Differentiation,-`Total problems`)
 
-# select 100 random unique 'ind_id's and assign new identifiers
+# select 80 random unique 'ind_id's and assign new identifiers
 unique_ind_ids <- plotdat %>%
   distinct(ind_id) %>%
-  sample_n(100) %>%
+  sample_n(80) %>%
   mutate(new_ind_id = as.character(row_number()))
 
 # join back to the original data
-plotdat_100 <- plotdat %>%
+plotdat_80 <- plotdat %>%
   inner_join(unique_ind_ids, by = "ind_id") %>%
   arrange(as.numeric(new_ind_id))
 
 #panel A: cleveland dot plot
-p1 <- ggplot(plotdat_100, aes(value, as.numeric(new_ind_id)))+
+p1 <- ggplot(plotdat_80, aes(value, as.numeric(new_ind_id)))+
   geom_line(aes(group = as.numeric(new_ind_id), colour=Differentiation), size = 1.2) +
   geom_point(aes(shape = CBCL_var), fill = "white", size = 2.2) +
   scale_shape_manual(values = c(24, 22), guide = guide_legend(title = NULL)) +
-  scale_colour_viridis(option="viridis")+
-  guides(shape=guide_legend(order = 1, title = NULL, label.theme = element_text(size=17)))+
+  scale_colour_viridis(option="inferno") +
+  guides(shape=guide_legend(order = 1, title = NULL, reverse = TRUE, label.theme = element_text(size=17)))+
   theme_minimal() +
   ylab("Randomly selected individuals") +
   xlab("CBCL subscale scores") +
+  geom_text(aes(x = Inf, y = -Inf), label = "Positive = more \nbehavioral           ",
+            hjust = -2.23, vjust = 2.7, size = 4.4) +
+  geom_text(aes(x = Inf, y = -Inf), label = "Negative = more \nemotional                                                 ",
+            hjust = -0.13, vjust = 2.7, size = 4.4) +
   theme(
     legend.position = "bottom",
     legend.direction = "horizontal",
+    legend.title = element_blank(),
+    legend.margin = margin(12, 97, 0, 8),
     axis.line = element_line(colour = "black"),
-    axis.title=element_text(size=15, colour="black"),
+    axis.title = element_text(size=15, colour="black"),
     axis.text = element_text(size = 13, colour = "black"),
     panel.grid.major = element_blank(),
-    panel.grid.minor = element_blank(),
-    legend.title = element_text(size=13, colour="black", vjust= 0.75)
-  )
+    panel.grid.minor = element_blank()
+  ) +
+  coord_cartesian(clip = "off")
 
 p1
 
@@ -316,25 +266,24 @@ plotdat_3000 <- plotdat %>%
 
 # panel 2: histogram differentiation
 p2 <- ggplot(plotdat_3000, aes(Differentiation))+
-  geom_histogram(aes(y=..density.., fill=..x..),colour= "black",binwidth = 0.5) +
+  geom_histogram(aes(y=..density..,fill=..x..),colour= "black",binwidth = 0.5, show.legend = FALSE) +
   geom_density(colour="black" )+
-  scale_fill_viridis(option="viridis")+
+  scale_fill_viridis(option="inferno")+
+  guides(fill="none") +
   theme_minimal() +
   ylab("") +
   theme(panel.grid.major=element_blank(),
         panel.grid.minor=element_blank(),
         axis.title=element_text(size=15, colour="black"),
         axis.text=element_text(size=13, colour="black"),
-        axis.line=element_line(colour="black")) +
-  guides(fill = "none")
+        axis.line=element_line(colour="black"))
 
 p2
 
 # panel 3: histogram total problems
 p3 <- ggplot(plotdat_3000, aes(`Total problems`))+
-  geom_histogram(aes(y=..density.., fill=..x..),colour= "black",binwidth = 0.5) +
+  geom_histogram(aes(y=..density..),fill="grey80",colour= "black",binwidth = 0.6) +
   geom_density(colour="black" )+
-  scale_fill_viridis(option="viridis")+
   theme_minimal() +
   ylab("") +
   theme(panel.grid.major=element_blank(),
@@ -348,9 +297,9 @@ p3
 
 #panel 4: dot plot correlation differentiation and total problems
 p4 <- ggplot(plotdat_3000) +
-  geom_jitter(aes(`Total problems`,Differentiation, fill=Differentiation), shape=21, size = 1.5, width=0.75, height=0.75)+
-  geom_smooth(aes(`Total problems`,Differentiation), method="lm", colour="black")+
-  scale_fill_viridis(option="viridis")+
+  geom_jitter(aes(Differentiation, `Total problems`, fill=Differentiation), shape=21, size = 1.5, width=0.75, height=0.75)+
+  geom_smooth(aes(Differentiation, `Total problems`), method="lm", colour="black")+
+  scale_fill_viridis(option="inferno")+
   theme_minimal() +
   theme(panel.grid.major=element_blank(),
         panel.grid.minor=element_blank(),
@@ -363,9 +312,14 @@ p4
 
 patch <- p1 + (p2 / p3 / p4)
 
-patch + 
+patch2 <- patch + 
   plot_annotation(tag_levels = 'A') +
   plot_layout(guides = 'collect') &
   theme(legend.position='bottom')
 
+patch2
+
+# save out
+ggsave("figures/Figure_1.tiff", device="tiff", dpi=320, units="cm",
+     height = 20, width = 20)
 

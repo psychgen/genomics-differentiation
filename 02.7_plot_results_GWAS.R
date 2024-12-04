@@ -1,7 +1,7 @@
 #02.7_plot_results_GWAS.R
 
-#This script creates miami plots, manhattan plots, and QQ plots 
-#based on the multivariate GWAS output
+#This script creates miami plots, manhattan plots, and QQ plots based 
+#on the multivariate GWAS output for differentiation and total problems.
 
 #devtools::install_local("./packages/miamiplot-master.zip", lib = "./packages")
 
@@ -13,8 +13,8 @@ library(data.table)
 library(ggplot2)
 
 #load data for miami plot differentiation and total (diff top and tot bottom)
-intercept_diff <- fread("N:/durable/projects/differentiation_genomics/GWAS/output_files/lgm/intercept_diff.txt")
-intercept_tot <- fread("N:/durable/projects/differentiation_genomics/GWAS/output_files/lgm/intercept_tot.txt")
+intercept_diff <- fread("N:/durable/projects/differentiation_genomics/GWAS/output_files/lgm/intercept_diff_new.txt")
+intercept_tot <- fread("N:/durable/projects/differentiation_genomics/GWAS/output_files/lgm/intercept_tot_new.txt")
 
 #merge diff and tot
 both <- intercept_diff %>%
@@ -28,7 +28,10 @@ miami_both<- ggmiami(data = both,
                      split_by = "lhs", 
                      split_at = "i1", 
                      p = "P", chr = "CHR", pos = "BP",
+                     genome_line = 5e-8,
                      genome_line_color = "blue",
+                     suggestive_line = 1e-5,
+                     suggestive_line_color = "blue",
                      chr_colors = NULL,
                      upper_chr_colors = c("#99CCFF","#0072B2"),
                      lower_chr_colors = c("#FF9933","#D55E00"),
@@ -36,38 +39,10 @@ miami_both<- ggmiami(data = both,
                      lower_ylab = "Total problems")
 
 #save
-ggsave(miami_both, filename = "Miami_both_big.tiff", device = "tiff", width = 9, 
+ggsave(miami_both, filename = "Miami_both_big_new.tiff", device = "tiff", width = 9, 
        height = 4.5, units = "in", dpi = 1200)
 
-#load data for miami plot differentiation and total slope (diff top, tot bottom)
-slope_diff <- fread("N:/durable/projects/differentiation_genomics/GWAS/output_files/lgm/slope_diff.txt")
-slope_tot <- fread("N:/durable/projects/differentiation_genomics/GWAS/output_files/lgm/slope_tot.txt")
-
-#merge diff and tot
-slope_both <- slope_diff %>%
-  full_join(slope_tot)
-
-rm(slope_diff,slope_tot)
-gc()
-
-#plot
-miami_slope<- ggmiami(data = slope_both, 
-                      split_by = "lhs", 
-                      split_at = "s1", 
-                      p = "P", chr = "CHR", pos = "BP",
-                      genome_line_color = "blue",
-                      chr_colors = NULL,
-                      upper_chr_colors = c("#99CCFF","#0072B2"),
-                      lower_chr_colors = c("#FF9933","#D55E00"),
-                      upper_ylab = "Differentiation",
-                      lower_ylab = "Total problems")
-
-#save
-ggsave(miami_slope, filename = "Miami_both_slope.tiff", device = "tiff", width = 9, 
-       height = 4.5, units = "in", dpi = 1200)
-
-
-##make Manhattan and QQ plots for the GWAS of intercept and slope (both)
+##make Manhattan and QQ plots for the GWAS of intercepts
 setwd("N:/durable/projects/differentiation_genomics/GWAS/output_files/lgm/")
 
 Sys.getenv(c("DISPLAY"))
@@ -77,7 +52,7 @@ options(bitmapType='cairo')
 files <- list.files(path = "N:/durable/projects/differentiation_genomics/GWAS/output_files/lgm", pattern = "_diff.txt")
 
 #create function for plotting
-GWAS_plots_lgm_diff <- function(file){
+GWAS_plots_diff <- function(file){
   name <- stringr::str_remove(file, ".txt")
   
   # manhattan plot
@@ -96,13 +71,13 @@ GWAS_plots_lgm_diff <- function(file){
 }
 
 #plot
-purrr::map(files, GWAS_plots_lgm_diff)
+purrr::map(files, GWAS_plots_diff)
 
 #list files for total
 files <- list.files(path = "N:/durable/projects/differentiation_genomics/GWAS/output_files/lgm", pattern = "_tot.txt")
 
 #create function for plotting
-GWAS_plots_lgm_tot <- function(file){
+GWAS_plots_tot <- function(file){
   name <- stringr::str_remove(file, ".txt")
   
   # manhattan plot
@@ -121,4 +96,5 @@ GWAS_plots_lgm_tot <- function(file){
 }
 
 #plot
-purrr::map(files, GWAS_plots_lgm_tot)
+purrr::map(files, GWAS_plots_tot)
+

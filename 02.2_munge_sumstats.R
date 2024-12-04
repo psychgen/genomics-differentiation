@@ -1,4 +1,4 @@
-#02.x_munge_sumstats.R
+#02.2_munge_sumstats.R
 
 #This script munges the summary statistics before running ld-score regression
 

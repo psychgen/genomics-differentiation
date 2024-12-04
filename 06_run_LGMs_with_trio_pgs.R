@@ -1,46 +1,22 @@
 #06_run_trio_pgs_analyses.R
 
-## This script runs the LGMs with trio PGS by sourcing the script 
-## ‘06.1_specify_LGMs_with_trio_pgs.R’.
+#This script runs LGMs with trio PGS as predictors. The models tested here are: 
+
+## 1. multivariate PGS model in the full sample of trios
+## 2. multivariate PGS model restricted to unrelated trios
+## 3. univariate PGS models in the full sample of trios
+
+#Results are then processed, plotted, and tabulated for each of these models,
+#which are run by sourcing the script: '06.1_specify_LGMs_with_trio_pgs.R'.
 
 library(tidyverse)
 library(lavaan)
-library(genotools)
 library(scales)
 
-# load processed data
-load("./data/processed_data.RData")
-
-# restrict full dataset to complete genotyped trios
-trio_full <- fulldata %>%
-  filter(!is.na(adhd_child) & !is.na(adhd_father) & !is.na(adhd_mother) &
-           !is.na(asd_child) & !is.na(asd_father) & !is.na(asd_mother) &
-           !is.na(an_child) & !is.na(an_father) & !is.na(an_mother) &
-           !is.na(ts_child) & !is.na(ts_father) & !is.na(ts_mother) &
-           !is.na(ocd_child) & !is.na(ocd_father) & !is.na(ocd_mother) &
-           !is.na(scz_child) & !is.na(scz_father) & !is.na(scz_mother) &
-           !is.na(bip_child) & !is.na(bip_father) & !is.na(bip_mother) &
-           !is.na(alc_child) & !is.na(alc_father) & !is.na(alc_mother) &
-           !is.na(ptsd_child) & !is.na(ptsd_father) & !is.na(ptsd_mother) &
-           !is.na(mdd_child) & !is.na(mdd_father) & !is.na(mdd_mother) &
-           !is.na(anx_child) & !is.na(anx_father) & !is.na(anx_mother))
-
-# get list of unrelated trios in MoBa
-unrelated <- unrelate(unrelated = "trios")
-
-# make character to enable filtering
-trio_full <- trio_full %>%
-  mutate(BARN_NR = as.character(BARN_NR))
-
-# restrict to unrelated trios
-trio_unrelated <- trio_full %>%
-  filter(IID %in% unrelated$IID) 
-
-# save / load trio data
-save(trio_full, file="./data/trio_full.RData")
-save(trio_unrelated, file="./data/trio_unrelated.RData")
-load(file="./data/trio_full.RData")
-load(file="./data/trio_unrelated.RData")
+# load processed data and trio data
+load("./data/processed_data_ld.RData")
+load(file="./data/trio_full_ld.RData")
+load(file="./data/trio_unrelated_ld.RData")
 
 # specify trio PGS model
 source("./scripts/06.1_specify_LGMs_with_trio_pgs.R")
@@ -58,22 +34,22 @@ fit_triomodel_full <- sem(triomodel,
 summary(fit_triomodel_full, fit.measures = TRUE, std = TRUE, rsquare=TRUE)
 
 # save / load trio PGS model output (full sample)
-save(fit_triomodel_full, file= "./output/fit_triomodel_full.RData")
+save(fit_triomodel_full, file= "./output/fit_triomodel_full_ld.RData")
 load("./output/fit_triomodel_full.RData")
 
 # run trio PGS model diff + tot on unrelated sample (sensitivity analysis)
 fit_triomodel_unrelated <- sem(triomodel, 
                                missing = "ML", 
                                estimator = "MLR", 
-                               data = trio_unrelated, 
+                               data = trio_unrelated_ld, 
                                fixed.x = F)
 
 # provide output for the model (sensitivity)
 summary(fit_triomodel_unrelated, fit.measures = TRUE, std = TRUE, rsquare=TRUE)
 
 # save / load trio PGS model output (unrelated sensitivity analysis)
-save(fit_triomodel_unrelated, file= "./output/fit_triomodel_unrelated.RData")
-load("./output/fit_triomodel_unrelated.RData")
+save(fit_triomodel_unrelated, file= "./output/fit_triomodel_unrelated_ld.RData")
+load("./output/fit_triomodel_unrelated_ld.RData")
 
 # loop to run univariate trio PGS models on full sample (with clustering on 
 #maternal id to account for child siblings as the main source of relatedness)
@@ -178,6 +154,9 @@ tbl_int_uni_trio_direct <- uni_trio_both %>%
                          "Anxiety","Alcohol","PTSD","OCD","Anorexia","Tourette's")) %>%
   arrange(pgs)
 
+rows_to_replace_col5 <- which(tbl_int_uni_trio_direct[[5]] == 0)
+rows_to_replace_col9 <- which(tbl_int_uni_trio_direct[[9]] == 0)
+
 (ft_tbl_int_uni_trio_direct <- tbl_int_uni_trio_direct %>% 
     flextable() %>% 
     set_header_labels(values=list(pgs="PGS",est.std.d="EST",ci.lower.d="LCI",
@@ -185,16 +164,20 @@ tbl_int_uni_trio_direct <- uni_trio_both %>%
                                   ci.lower.t="LCI",ci.upper.t="UCI",fdr_pval.t="")) %>%
     add_header_row(values=list("","Differentiation","Total problems"), colwidths = c(1,4,4)) %>%
     compose(i = c(2,2), j = c(5,9), part = "header", value = as_paragraph("P",as_sub("FDR"))) %>%
+    compose(i = rows_to_replace_col5, j = 5, part = "body",value = as_paragraph("<0.01")) %>%
+    compose(i = rows_to_replace_col9, j = 9, part = "body",value = as_paragraph("<0.01")) %>%
     flextable::font(fontname = "Arial", part= "all") %>% 
     theme_box() %>%
     border_outer(border=fp_border(color="gray80",width=2),part="all") %>%
     border_inner(border=fp_border(color='gray80',width=1),part="all") %>%
     hline(i=2,border=fp_border(color="gray50",width=3),part="header") %>%
     bg(bg="#F1F1F1",part="header") %>% 
-    align(align = "center", part="all") %>% 
+    align(align = "right", part="footer") %>% 
+    align(align = "center", part="header") %>%
+    align(j = 1, align = "left", part = "header") %>%
     set_table_properties(layout = "autofit"))
 
-save_as_docx(ft_tbl_int_uni_trio_direct, path = "./tables/Table_S8_univariate_trio_direct_effects.docx")
+save_as_docx(ft_tbl_int_uni_trio_direct, path = "./tables/Table_S12_univariate_trio_direct_effects.docx")
 
 # create table indirect genetic effects on intercept (univariate)
 tbl_int_uni_trio_indirect <- uni_trio_both %>%
@@ -228,16 +211,19 @@ tbl_int_uni_trio_indirect <- uni_trio_both %>%
     hline(i=2,border=fp_border(color="gray50",width=3),part="header") %>%
     bg(bg="#F1F1F1",part="header") %>% 
     merge_v(j = ~ parent) %>%
-    align(align = "center", part="all") %>% 
+    align(align = "right", part="footer") %>% 
+    align(align = "center", part="header") %>%
+    align(j = 2, align = "left", part = "header") %>%
     set_table_properties(layout = "autofit"))
 
-save_as_docx(ft_tbl_int_uni_trio_indirect, path = "./tables/Table_S9_univariate_trio_indirect_effects.docx")
+save_as_docx(ft_tbl_int_uni_trio_indirect, path = "./tables/Table_S13_univariate_trio_indirect_effects.docx")
 
 # take diff estimates from full sample trio PGS model (multivariate)
 trio_diff <- standardizedSolution(fit_triomodel_full, ci=TRUE, level=0.95) %>%
   filter(lhs=="i1"|lhs=="s1",
          op == "~") %>%
   mutate(model = "Differentiation")
+fit_triomodel_unrelated
 
 trio_diff <- trio_diff[-c(1,2),]
 
@@ -319,13 +305,86 @@ levels(trio_both$pgs)[levels(trio_both$pgs)=="ts_father"] <- "Tourette's"
 
 # save out full sample results
 save(trio_both,file="./output/trio_PGS_effects.RData")
-load(file="./output/trio_PGS_effects.RData")
+
+# take diff estimates from unrelated sample trio PGS model
+trio_diff_unr <- standardizedSolution(fit_triomodel_unrelated, ci=TRUE, level=0.95) %>%
+  filter(lhs=="i1"|lhs=="s1",
+         op == "~") %>%
+  mutate(model = "Differentiation")
+
+trio_diff_unr <- trio_diff_unr[-c(1,2),]
+
+# adjust p-values for intercept
+trio_diff_unr <- trio_diff_unr %>%
+  filter(lhs=="i1") %>%
+  mutate(fdr_pval = p.adjust(pvalue, method="fdr"))
+
+# take tot estimates from full sample trio PGS model
+trio_tot_unr <- standardizedSolution(fit_triomodel_unrelated, ci=TRUE, level=0.95) %>%
+  filter(lhs=="i2"|lhs=="s2",
+         op == "~") %>%
+  mutate(model = "Total problems")
+
+trio_tot_unr <- trio_tot_unr[-c(1,2),]
+
+# adjust p-values for intercept
+trio_tot_unr <- trio_tot_unr %>%
+  filter(lhs=="i2") %>%
+  mutate(fdr_pval = p.adjust(pvalue, method="fdr"))
+
+# merge diff and tot, create effect variable 
+# distinguishing direct and indirect effects
+trio_unrelated <- trio_diff_unr %>%
+  full_join(trio_tot_unr) %>%
+  mutate(Effect = case_when(str_detect(rhs, "_child") ~ "Direct\n (cPGS)",
+                            !str_detect(rhs, "_child") &
+                              model == "Total problems" |
+                              model == "Differentiation" ~ "Indirect\n (mPGS + fPGS)"),
+         Effect = fct_relevel(Effect,"Direct\n (cPGS)","Indirect\n (mPGS + fPGS)"),
+         model = as.factor(model),
+         pgs = as.factor(rhs))
+
+levels(trio_unrelated$pgs)[levels(trio_unrelated$pgs)=="adhd_child"] <- "ADHD"
+levels(trio_unrelated$pgs)[levels(trio_unrelated$pgs)=="alc_child"] <- "Alcohol"
+levels(trio_unrelated$pgs)[levels(trio_unrelated$pgs)=="an_child"] <- "Anorexia"
+levels(trio_unrelated$pgs)[levels(trio_unrelated$pgs)=="anx_child"] <- "Anxiety"
+levels(trio_unrelated$pgs)[levels(trio_unrelated$pgs)=="asd_child"] <- "Autism"
+levels(trio_unrelated$pgs)[levels(trio_unrelated$pgs)=="bip_child"] <- "Bipolar"
+levels(trio_unrelated$pgs)[levels(trio_unrelated$pgs)=="scz_child"] <- "SCZ"
+levels(trio_unrelated$pgs)[levels(trio_unrelated$pgs)=="mdd_child"] <- "MDD"
+levels(trio_unrelated$pgs)[levels(trio_unrelated$pgs)=="ocd_child"] <- "OCD"
+levels(trio_unrelated$pgs)[levels(trio_unrelated$pgs)=="ptsd_child"] <- "PTSD"
+levels(trio_unrelated$pgs)[levels(trio_unrelated$pgs)=="ts_child"] <- "Tourette's"
+
+levels(trio_unrelated$pgs)[levels(trio_unrelated$pgs)=="adhd_mother"] <- "ADHD"
+levels(trio_unrelated$pgs)[levels(trio_unrelated$pgs)=="alc_mother"] <- "Alcohol"
+levels(trio_unrelated$pgs)[levels(trio_unrelated$pgs)=="an_mother"] <- "Anorexia"
+levels(trio_unrelated$pgs)[levels(trio_unrelated$pgs)=="anx_mother"] <- "Anxiety"
+levels(trio_unrelated$pgs)[levels(trio_unrelated$pgs)=="asd_mother"] <- "Autism"
+levels(trio_unrelated$pgs)[levels(trio_unrelated$pgs)=="bip_mother"] <- "Bipolar"
+levels(trio_unrelated$pgs)[levels(trio_unrelated$pgs)=="scz_mother"] <- "SCZ"
+levels(trio_unrelated$pgs)[levels(trio_unrelated$pgs)=="mdd_mother"] <- "MDD"
+levels(trio_unrelated$pgs)[levels(trio_unrelated$pgs)=="ocd_mother"] <- "OCD"
+levels(trio_unrelated$pgs)[levels(trio_unrelated$pgs)=="ptsd_mother"] <- "PTSD"
+levels(trio_unrelated$pgs)[levels(trio_unrelated$pgs)=="ts_mother"] <- "Tourette's"
+
+levels(trio_unrelated$pgs)[levels(trio_unrelated$pgs)=="adhd_father"] <- "ADHD"
+levels(trio_unrelated$pgs)[levels(trio_unrelated$pgs)=="alc_father"] <- "Alcohol"
+levels(trio_unrelated$pgs)[levels(trio_unrelated$pgs)=="an_father"] <- "Anorexia"
+levels(trio_unrelated$pgs)[levels(trio_unrelated$pgs)=="anx_father"] <- "Anxiety"
+levels(trio_unrelated$pgs)[levels(trio_unrelated$pgs)=="asd_father"] <- "Autism"
+levels(trio_unrelated$pgs)[levels(trio_unrelated$pgs)=="bip_father"] <- "Bipolar"
+levels(trio_unrelated$pgs)[levels(trio_unrelated$pgs)=="scz_father"] <- "SCZ"
+levels(trio_unrelated$pgs)[levels(trio_unrelated$pgs)=="mdd_father"] <- "MDD"
+levels(trio_unrelated$pgs)[levels(trio_unrelated$pgs)=="ocd_father"] <- "OCD"
+levels(trio_unrelated$pgs)[levels(trio_unrelated$pgs)=="ptsd_father"] <- "PTSD"
+levels(trio_unrelated$pgs)[levels(trio_unrelated$pgs)=="ts_father"] <- "Tourette's"
 
 # save out unrelated sample results
-save(trio_both,file="./output/trio_PGS_effects_unrelated.RData")
-load(file="./output/trio_PGS_effects_unrelated.RData")
+save(trio_unrelated,file="./output/trio_PGS_effects_unrelated_ld.RData")
 
 # plot unadjusted and adjusted PGS associations
+load(file="./output/trio_PGS_effects.RData")
 load(file="./output/unadjusted_PGS_ests.RData")
 
 # rename before merging unadj and adj
@@ -373,7 +432,7 @@ p_all<-ggplot(all_ests, aes(x=est.std, y=pgs, xmin=ci.lower, xmax=ci.upper, colo
         legend.text = element_text(size=16,colour="black"),
         legend.position="top") + 
   xlab(label=expression(beta)) + 
-  coord_cartesian(xlim = c(-0.065,0.115))
+  coord_cartesian(xlim = c(-0.075,0.125))
 
 p_all
 
@@ -451,9 +510,7 @@ p_clev <- ggplot(all_ests_line, aes(colour = outcome, group = interaction(outcom
         legend.text = element_text(size=13,colour="black"),
         legend.position="top") + 
   xlab(label=expression(paste(beta," direct (cPGS)"))) + 
-  coord_cartesian(xlim = c(-0.1,0.1))
-
-print(p_clev)
+  coord_cartesian(xlim = c(-0.055,0.105))
 
 # create plot for indirect genetic effects
 trio_indirect <- trio_both %>%
@@ -500,10 +557,9 @@ p_ind_m <- ggplot(trio_indirect_m, aes(x = est.std, y = pgs, xmin=ci.lower, xmax
         legend.title = element_blank(),
         legend.text = element_text(size=13,colour="black"),
         legend.position="top") + 
+  scale_x_continuous(breaks = c(-0.05, -0.025, 0, 0.025, 0.05)) +
   xlab(label=expression(paste(beta," indirect (mPGS)"))) + 
-  coord_cartesian(xlim = c(-0.1,0.1))
-
-print(p_ind_m)
+  coord_cartesian(xlim = c(-0.053,0.053))
 
 p_ind_f <- ggplot(trio_indirect_f, aes(x = est.std, y = pgs, xmin=ci.lower, xmax=ci.upper, colour = outcome, group = interaction(outcome, pgs))) +
   geom_vline(aes(xintercept=0), size=0.9,colour = "grey60", linetype = 3) + 
@@ -529,32 +585,32 @@ p_ind_f <- ggplot(trio_indirect_f, aes(x = est.std, y = pgs, xmin=ci.lower, xmax
         panel.grid.major.y = element_line(),
         legend.title = element_blank(),
         legend.position="top") + 
+  scale_x_continuous(breaks = c(-0.05, -0.025, 0, 0.025, 0.05)) +
   xlab(label=expression(paste(beta," indirect (fPGS)"))) + 
-  coord_cartesian(xlim = c(-0.1,0.1))
-
-print(p_ind_f)
+  coord_cartesian(xlim = c(-0.053,0.053))
 
 patch <- p_clev + p_ind_m + p_ind_f
 
-patch + plot_annotation(tag_levels="A") &
+patch6 <- patch + plot_annotation(tag_levels="A") &
   theme(plot.tag = element_text(size = 14))
 
-# group and sum
-trio_sum <- trio_both %>%
-  mutate(bp_est = est.std^2) %>%
-  select(Effect,model,bp_est) %>%
-  group_by(Effect,model) %>%
-  summarise(across(bp_est, sum), 
-            .groups="drop") %>% 
-  as.data.frame()
+# save out
+tiff("figures/Figure_6.tiff", res = 800, compression = "lzw", unit = "in",
+     height = 8, width = 11)
+
+patch6
+
+dev.off()
+
+
 
 # plot results ----
 
 # create dot plot unadjusted PGS
 p1<-ggplot(ests, aes(x=est.std, y=pgs, xmin=ci.lower, xmax=ci.upper, colour=outcome, shape=outcome)) +
   geom_vline(aes(xintercept=0), size=0.9,colour = "grey60", linetype = 3) + theme_light(base_size=14) +
-  geom_errorbar(size = 1.3, alpha=0.3, width = 0, position=position_dodge(0.4),show.legend = FALSE) +
-  geom_point(size=3.8, position=position_dodge(0.4)) +
+  geom_errorbar(size = 1.3, alpha=0.3, width = 0, position=position_dodge(0.6),show.legend = FALSE) +
+  geom_point(size=3.8, position=position_dodge(0.6)) +
   scale_y_discrete(limits=rev) +
   scale_colour_manual(values= c("#0072B2", "#D55E00")) +
   theme(axis.text = element_text(size=14,colour="black"),
@@ -572,7 +628,16 @@ p1<-ggplot(ests, aes(x=est.std, y=pgs, xmin=ci.lower, xmax=ci.upper, colour=outc
         legend.position="top",
         plot.margin=unit(c(0,1.6,0,0), "cm")) + 
   xlab(label=expression(beta)) + 
-  coord_cartesian(xlim = c(-0.05,0.105))
+  coord_cartesian(xlim = c(-0.05,0.117))
+
+trio_sum <- trio_both %>%
+  mutate(bp_est = est.std^2) %>%
+  group_by(Effect, model) %>%
+  summarise(
+    bp_est = sum(bp_est),
+    .groups = "drop"
+  ) %>%
+  as.data.frame()
 
 # create bar plot trio PGS
 bp <- ggplot(trio_sum, mapping=aes(x=Effect, y=bp_est, fill=model)) +
@@ -585,16 +650,16 @@ bp <- ggplot(trio_sum, mapping=aes(x=Effect, y=bp_est, fill=model)) +
         axis.title.x=element_blank(),
         axis.text.y=element_text(size=13),
         axis.text.x=element_text(size=13.5),
-        legend.position = "top",
         legend.title = element_blank(),
-        legend.text = element_text(size=14),
+        legend.text = element_text(size=15),
+        legend.box.spacing = unit(2, "cm"),
         plot.margin=unit(c(0,0,0.5,0), "cm"))
 
-patch <- p1 | bp / (dp + dx + plot_layout(guides="collect") &
-                      theme(legend.position="bottom"))
-
+patch <- p1 | (guide_area() / bp / plot_spacer()) + plot_layout(guides="collect",
+                                                                heights = c(0.5, 1, 0.2))
 patch + plot_annotation(tag_levels = "A") &
-  theme(plot.tag = element_text(size = 14))
+  theme(plot.tag = element_text(size = 14),
+        legend.direction = "horizontal")
 
 # create tables ----
 
@@ -609,6 +674,9 @@ tbl_int_trio_direct <- trio_both %>%
               names_sep = ".") %>%
   select(pgs, ends_with(".d"), ends_with(".t"))
 
+rows_to_replace_col5 <- which(tbl_int_trio_direct[[5]] == 0)
+rows_to_replace_col9 <- which(tbl_int_trio_direct[[9]] == 0)
+
 (ft_tbl_int_trio_direct <- tbl_int_trio_direct %>% 
     flextable() %>% 
     set_header_labels(values=list(pgs="PGS",est.std.d="EST",ci.lower.d="LCI",
@@ -616,16 +684,20 @@ tbl_int_trio_direct <- trio_both %>%
                                   ci.lower.t="LCI",ci.upper.t="UCI",fdr_pval.t="")) %>%
     add_header_row(values=list("","Differentiation","Total problems"), colwidths = c(1,4,4)) %>%
     compose(i = c(2,2), j = c(5,9), part = "header", value = as_paragraph("P",as_sub("FDR"))) %>%
+    compose(i = rows_to_replace_col5, j = 5, part = "body",value = as_paragraph("<0.01")) %>%
+    compose(i = rows_to_replace_col9, j = 9, part = "body",value = as_paragraph("<0.01")) %>%
     flextable::font(fontname = "Arial", part= "all") %>% 
     theme_box() %>%
     border_outer(border=fp_border(color="gray80",width=2),part="all") %>%
     border_inner(border=fp_border(color='gray80',width=1),part="all") %>%
     hline(i=2,border=fp_border(color="gray50",width=3),part="header") %>%
     bg(bg="#F1F1F1",part="header") %>% 
-    align(align = "center", part="all") %>% 
+    align(align = "right", part="footer") %>% 
+    align(align = "center", part="header") %>%
+    align(j = 1, align = "left", part = "header") %>%
     set_table_properties(layout = "autofit"))
 
-save_as_docx(ft_tbl_int_trio_direct, path = "./tables/Table_S8_trio_direct_effects.docx")
+save_as_docx(ft_tbl_int_trio_direct, path = "./tables/Table_S11_trio_direct_effects.docx")
 
 # create table indirect genetic effects on intercept
 tbl_int_trio_indirect <- trio_both %>%
@@ -656,13 +728,15 @@ tbl_int_trio_indirect <- trio_both %>%
     hline(i=2,border=fp_border(color="gray50",width=3),part="header") %>%
     bg(bg="#F1F1F1",part="header") %>% 
     merge_v(j = ~ parent) %>%
-    align(align = "center", part="all") %>% 
+    align(align = "right", part="footer") %>% 
+    align(align = "center", part="header") %>%
+    align(j = 2, align = "left", part = "header") %>%
     set_table_properties(layout = "autofit"))
 
-save_as_docx(ft_tbl_int_trio_indirect, path = "./tables/Table_S11_trio_indirect_effects.docx")
+save_as_docx(ft_tbl_int_trio_indirect, path = "./tables/Table_S14_trio_indirect_effects.docx")
 
 # create table direct genetic effects (unrelated sensitivity)
-tbl_unr_trio_direct <- trio_both %>%
+tbl_unr_trio_direct <- trio_unrelated %>%
   filter(Effect=="Direct\n (cPGS)") %>%
   mutate(across(where(is.numeric), round, digits=2)) %>%
   select(model,pgs,est.std,ci.lower,ci.upper,fdr_pval) %>%
@@ -672,6 +746,9 @@ tbl_unr_trio_direct <- trio_both %>%
               names_sep = ".") %>%
   select(pgs, ends_with(".d"), ends_with(".t"))
 
+rows_to_replace_col5 <- which(tbl_unr_trio_direct[[5]] == 0)
+rows_to_replace_col9 <- which(tbl_unr_trio_direct[[9]] == 0)
+
 (ft_tbl_unr_trio_direct <- tbl_unr_trio_direct %>% 
     flextable() %>% 
     set_header_labels(values=list(pgs="PGS",est.std.d="EST",ci.lower.d="LCI",
@@ -679,19 +756,23 @@ tbl_unr_trio_direct <- trio_both %>%
                                   ci.lower.t="LCI",ci.upper.t="UCI",fdr_pval.t="")) %>%
     add_header_row(values=list("","Differentiation","Total problems"), colwidths = c(1,4,4)) %>%
     compose(i = c(2,2), j = c(5,9), part = "header", value = as_paragraph("P",as_sub("FDR"))) %>%
+    compose(i = rows_to_replace_col5, j = 5, part = "body",value = as_paragraph("<0.01")) %>%
+    compose(i = rows_to_replace_col9, j = 9, part = "body",value = as_paragraph("<0.01")) %>%
     flextable::font(fontname = "Arial", part= "all") %>% 
     theme_box() %>%
     border_outer(border=fp_border(color="gray80",width=2),part="all") %>%
     border_inner(border=fp_border(color='gray80',width=1),part="all") %>%
     hline(i=2,border=fp_border(color="gray50",width=3),part="header") %>%
     bg(bg="#F1F1F1",part="header") %>% 
-    align(align = "center", part="all") %>% 
+    align(align = "right", part="footer") %>% 
+    align(align = "center", part="header") %>%
+    align(j = 1, align = "left", part = "header") %>%
     set_table_properties(layout = "autofit"))
 
-save_as_docx(ft_tbl_unr_trio_direct, path = "./tables/Table_S8_trio_direct_unrelated.docx")
+save_as_docx(ft_tbl_unr_trio_direct, path = "./tables/Table_S15_trio_direct_unrelated.docx")
 
 # create table indirect genetic effects (unrelated sensitivity)
-tbl_unr_trio_indirect <- trio_both %>%
+tbl_unr_trio_indirect <- trio_unrelated %>%
   filter(Effect=="Indirect\n (mPGS + fPGS)") %>%
   mutate(across(where(is.numeric), round, digits=2),
          parent = ifelse(str_detect(rhs,"mother"),"Mother","Father")) %>%
@@ -719,10 +800,12 @@ tbl_unr_trio_indirect <- trio_both %>%
     hline(i=2,border=fp_border(color="gray50",width=3),part="header") %>%
     bg(bg="#F1F1F1",part="header") %>% 
     merge_v(j = ~ parent) %>%
-    align(align = "center", part="all") %>% 
+    align(align = "right", part="footer") %>% 
+    align(align = "center", part="header") %>%
+    align(j = 2, align = "left", part = "header") %>%
     set_table_properties(layout = "autofit"))
 
-save_as_docx(ft_tbl_unr_trio_indirect, path = "./tables/Table_S9_trio_indirect_unrelated.docx")
+save_as_docx(ft_tbl_unr_trio_indirect, path = "./tables/Table_S16_trio_indirect_unrelated.docx")
 
 # create slope PGS plot
 
@@ -826,7 +909,7 @@ p_all2<-ggplot(all_ests2, aes(x=est.std, y=pgs, xmin=ci.lower, xmax=ci.upper, co
         legend.text = element_text(size=16,colour="black"),
         legend.position="top") + 
   xlab(label=expression(beta)) + 
-  coord_cartesian(xlim = c(-0.065,0.115))
+  coord_cartesian(xlim = c(-0.075,0.125))
 
 p_all2
 
@@ -855,6 +938,9 @@ tbl_slope_trio_direct <- all_ests2 %>%
               names_sep = ".") %>%
   select(pgs, ends_with(".d"), ends_with(".t"))
 
+rows_to_replace_col5 <- which(tbl_slope_trio_direct[[5]] == 0)
+rows_to_replace_col9 <- which(tbl_slope_trio_direct[[9]] == 0)
+
 (ft_tbl_slope_trio_direct <- tbl_slope_trio_direct %>% 
     flextable() %>% 
     set_header_labels(values=list(pgs="PGS",est.std.d="EST",ci.lower.d="LCI",
@@ -862,16 +948,20 @@ tbl_slope_trio_direct <- all_ests2 %>%
                                   ci.lower.t="LCI",ci.upper.t="UCI",fdr_pval.t="")) %>%
     add_header_row(values=list("","Differentiation","Total problems"), colwidths = c(1,4,4)) %>%
     compose(i = c(2,2), j = c(5,9), part = "header", value = as_paragraph("P",as_sub("FDR"))) %>%
+    compose(i = rows_to_replace_col5, j = 5, part = "body",value = as_paragraph("<0.01")) %>%
+    compose(i = rows_to_replace_col9, j = 9, part = "body",value = as_paragraph("<0.01")) %>%
     flextable::font(fontname = "Arial", part= "all") %>% 
     theme_box() %>%
     border_outer(border=fp_border(color="gray80",width=2),part="all") %>%
     border_inner(border=fp_border(color='gray80',width=1),part="all") %>%
     hline(i=2,border=fp_border(color="gray50",width=3),part="header") %>%
     bg(bg="#F1F1F1",part="header") %>% 
-    align(align = "center", part="all") %>% 
+    align(align = "right", part="footer") %>% 
+    align(align = "center", part="header") %>%
+    align(j = 1, align = "left", part = "header") %>%
     set_table_properties(layout = "autofit"))
 
-save_as_docx(ft_tbl_slope_trio_direct, path = "./tables/Table_S24_trio_direct_effects_slope.docx")
+save_as_docx(ft_tbl_slope_trio_direct, path = "./tables/Table_S18_trio_direct_effects_slope.docx")
 
 # create table indirect genetic effects on slope
 trio_both2 <- trio_both2 %>%
@@ -944,8 +1034,10 @@ tbl_slope_trio_indirect <- trio_both2 %>%
     hline(i=2,border=fp_border(color="gray50",width=3),part="header") %>%
     bg(bg="#F1F1F1",part="header") %>% 
     merge_v(j = ~ parent) %>%
-    align(align = "center", part="all") %>% 
+    align(align = "right", part="footer") %>% 
+    align(align = "center", part="header") %>%
+    align(j = 2, align = "left", part = "header") %>%
     set_table_properties(layout = "autofit"))
 
-save_as_docx(ft_tbl_slope_trio_indirect, path = "./tables/Table_S25_trio_indirect_effects_slope.docx")
+save_as_docx(ft_tbl_slope_trio_indirect, path = "./tables/Table_S19_trio_indirect_effects_slope.docx")
 

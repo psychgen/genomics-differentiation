@@ -1,7 +1,15 @@
-# 05.1_specify_combined_LGMs_with_pgs.R
+#05.1_specify_combined_LGMs_with_pgs.R
 
+#This script specifies a basic LGM and three versions of the LGM including child 
+#PGS as predictors and differentiation and total problems as outcomes (combined).
+#The models are run by the script: '05_run_combined_LGMs_with_pgs.R'.
 
-# basic LGM
+## 1. basic latent growth model (LGM)
+## 2. LGM with PGS as predictors (intercept and slope)
+## 3. effects on intercepts only
+## 4. effects on slopes only
+
+#basic LGM
 
 model_basic <-  
            '

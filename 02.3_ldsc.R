@@ -1,6 +1,6 @@
-#02.x_ldsc.R
+#02.3_ldsc.R
 
-#This script runs LDSC on the summary statistics for running multivariate GWAS
+#This script runs LDSC on the summary statistics for running multivariate GWAS.
 
 #load necessary packages
 library(tzdb, lib = "//cluster/p/p471/cluster/projects/differentiation_genomics/packages")

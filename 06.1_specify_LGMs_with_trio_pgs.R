@@ -1,7 +1,13 @@
-# 06.1_specify_LGMs_with_trio_pgs.R
+#06.1_specify_LGMs_with_trio_pgs.R
 
+#This specifies LGMs with trio PGS as predictors. The models specified are: 
 
-# multivariate trio PGS LGM
+## 1. multivariate PGS model
+## 2. univariate PGS model
+
+#The models are run by the script: '06_run_LGMs_with_trio_pgs.R'.
+
+#multivariate trio PGS LGM
 
 triomodel <-  
           '

@@ -1,20 +1,18 @@
 #02.4_run_multivariate_GWAS_diff.R
 
-#This script runs multivariate GWAS of the differentiation slope and intercept
-#from an LGM that is equivalent to the phenotypic LGM, but specified based on a
-#genetic variance/covariance matrix. To be run on the cluster using the 
-#script '02.4_run_multivariate_GWAS_diff.sh' in the 'shell scripts/multivariate 
-#GWAS' folder
+#This script runs multivariate GWAS of the differentiation intercept, from an 
+#LGM that is equivalent to the phenotypic model, but specified based on a
+#genetic variance/covariance matrix. To be run on the cluster using the script 
+#'02.4_run_multivariate_GWAS_diff.sh' in the 'shell scripts/multivariate GWAS' folder.
 
 library(tzdb, lib = "//cluster/p/p471/cluster/projects/differentiation_genomics/packages")
 library(GenomicSEM, lib = "//cluster/p/p471/cluster/projects/differentiation_genomics/packages")
 
-load(file="ldsc.RData")
-
-load(file="sumstats.RData")
+load(file="/ess/p471/data/durable/projects/differentiation_genomics/cluster/scripts/GWAS/input_files/ldsc.RData")
+load(file="/ess/p471/data/durable/projects/differentiation_genomics/cluster/scripts/GWAS/input_files/sumstats.RData")
 
 lgm.model <-
-  '
+           '
 # growth parameters (latent variables)
   
            i1 =~ 1*diff1 + 1*diff2 + 1*diff3
@@ -47,12 +45,11 @@ lgm.model <-
 # snp effects
 
            i1 ~ SNP
-           s1 ~ SNP
            '
 
-sub<-c("i1 ~ SNP","s1 ~ SNP")
+sub<-c("i1 ~ SNP")
 
 GWAS_both_diff <-userGWAS(covstruc=ldsc,SNPs=sumstats,model=lgm.model,estimation="DWLS",
-                         sub=sub,smooth_check=FALSE,cores=20,parallel=TRUE)
+                          sub=sub,smooth_check=FALSE,cores=20,parallel=TRUE)
 
 save(GWAS_both_diff, file="GWAS_both_diff.RData")

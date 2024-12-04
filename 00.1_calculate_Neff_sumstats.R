@@ -1,4 +1,4 @@
-#03.1_calculate_Neff_sumstats.R
+#00.1_calculate_Neff_sumstats.R
 
 ## This script calculates the sample size (N) as the sum of 
 ## effective sample sizes for each GWAS. 
@@ -39,6 +39,20 @@
 #lower limit of 0.5 of total effective N
  MDD$Neff<-ifelse(MDD$Neff < 0.5*TotalNeff, 0.5*TotalNeff, MDD$Neff)
  
+#read in 1000 genomes reference file used to get CHR and BP
+ ref<-fread("./reference.1000G.maf.0.005.txt",data.table=FALSE)
+ 
+#subset reference file to just SNP, CHR and BP
+ attach(ref)
+ ref<-data.frame(SNP,CHR,BP)
+
+##add CHR and BP columns to sumstats for PGS creation
+ 
+#merge with MDD summary statistics based on rsID
+ MDD <- merge(MDD, ref, by.x = "MarkerName", by.y = "SNP")
+ 
+ head(MDD)
+ 
 #output the updated MDD file
  write.table(MDD, file = "./data/sstats/mdd2019_withNeff.txt", sep = "\t", quote=FALSE,row.names=FALSE,col.names=TRUE)
 
@@ -51,11 +65,12 @@
 #read in schizophrenia summary data to edit the Neff column
  SCZ<-fread("N:/durable/projects/differentiation_genomics/data/sstats/PGC3_SCZ_wave3.primary.autosome.public.v3.vcf.tsv",data.table=FALSE)
 
-#multiply Neff column by two (unlikely to be the correct type of Neff)
+#multiply Neff column by two (unlikely to be the correct type of Neff for GenomicSEM)
  SCZ$Neff <- SCZ$NEFFDIV2*2
  
 #check if max value exceeds manually calculated approximate Neff
- max(SCZ$Neff,na.rm=TRUE)#170114.7 this is higher than the below calculation
+ max(SCZ$Neff,na.rm=TRUE)#170114.7 this is higher than the below calculation, which
+                         #suggests the total number of cases and controls was used
  
 #to check the above against manually calculated approximate (*) Neff,
 #read in information about sample size per cohort from the Sample description table
@@ -206,6 +221,20 @@
 #add Neff column to sumstats
  PTSD <- PTSD %>%
     mutate(Neff = rep(5831.346,times=13206891))
+ 
+#read in 1000 genomes reference file used to get CHR and BP
+ ref<-fread("./reference.1000G.maf.0.005.txt",data.table=FALSE)
+ 
+#subset reference file to just SNP, CHR and BP
+ attach(ref)
+ ref<-data.frame(SNP,CHR,BP)
+ 
+ ##add CHR and BP columns to sumstats for PGS creation
+ 
+ #merge with PTSD summary statistics based on rsID
+ PTSD <- merge(PTSD, ref, by.x = "MarkerName", by.y = "SNP")
+ 
+ head(PTSD)
  
  write.table(PTSD, file = "./data/sstats/ptsd_withNeff.txt", sep = "\t", quote=FALSE,row.names=FALSE,col.names=TRUE)
  
